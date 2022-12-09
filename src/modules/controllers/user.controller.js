@@ -65,6 +65,7 @@ export const changeUserData = async (req, res) => {
   try {
     const { id } = req.user;
     const { name, age, male } = req.body;
+    console.log('name, age, male', name, age, male);
 
     const changedUserData = {
       name,
@@ -72,7 +73,10 @@ export const changeUserData = async (req, res) => {
       male,
     };
 
-    const changedUser = await User.findOneAndUpdate({ _id: id }, changedUserData, { new: true });
+    const changedUser = await User
+      .findOneAndUpdate({ _id: id }, changedUserData, { new: true })
+      .select({ "name": 1, "age": 1, "male": 1, "_id": 0 });
+
     res.status(200).send(changedUser);
   } catch (err) {
     console.log(err);
