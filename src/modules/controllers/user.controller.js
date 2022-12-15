@@ -1,6 +1,8 @@
+import jwt from 'jsonwebtoken';
 import User from '../../models/user.model.js';
-import { generateAccessToken } from '../middleware/token.middleware.js';
-import { encryptPassword } from "../../helper/encryptPassword.js";
+import Token from '../../models/token.model.js';
+import { generateAccessToken, saveToken } from '../middleware/token.middleware.js';
+import { encryptPassword } from '../../helper/encryptPassword.js';
 
 export const registrationUser = async (req, res) => {
   try {
@@ -14,8 +16,13 @@ export const registrationUser = async (req, res) => {
 
     await user.save();
 
-    const token = generateAccessToken({ id: user._id });
-    res.status(200).send({ access_token: token });
+    const tokens = generateAccessToken({ id: user._id });
+    await saveToken(user._id, tokens.refreshToken);
+
+    delete user._doc.password;
+
+    res.cookie('refreshToken', tokens.refreshToken, { maxAge: 60 * 60 * 1000, httpOnly: true });
+    return res.status(200).send({ accessToken: tokens.accessToken, user });
   } catch (err) {
     console.log(err);
     if (err.code === 11000) {
@@ -40,8 +47,42 @@ export const loginUser = async (req, res) => {
       return res.status(401).send('Error! Data not correct');
     }
 
-    const token = generateAccessToken({ id: user._id });
-    res.status(200).send({ access_token: token });
+    const tokens = generateAccessToken({ id: user._id });
+    await saveToken(user._id, tokens.refreshToken);
+
+    delete user._doc.password;
+
+    res.cookie('refreshToken', tokens.refreshToken, { maxAge: 60 * 60 * 1000, httpOnly: true });
+    return res.status(200).send({ accessToken: tokens.accessToken, user });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send(err);
+  }
+};
+
+export const logoutUser = () => {};
+
+export const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.cookies;
+
+    if (!refreshToken) {
+      return res.status(401).send('Error! Unauthorized');
+    }
+
+    const userData = jwt.verify(refreshToken, process.env.TOKEN_REFRESH_SECRET);
+    const tokenFromDB = Token.findOne({ refreshToken });
+
+    if (!userData || !tokenFromDB) {
+      return res.status(403).send('Error! Token not correct!');
+    }
+
+    const user = await User.findById( userData.id );
+    const tokens = generateAccessToken({ id: user._id });
+    await saveToken(user._id, tokens.refreshToken);
+
+    res.cookie('refreshToken', tokens.refreshToken, { maxAge: 60 * 60 * 1000, httpOnly: true });
+    return res.status(200).send({ accessToken: tokens.accessToken });
   } catch (err) {
     console.log(err);
     res.status(500).send(err);

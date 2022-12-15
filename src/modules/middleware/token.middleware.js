@@ -1,7 +1,10 @@
 import jwt from 'jsonwebtoken';
+import Token from '../../models/token.model.js';
 
 export const generateAccessToken = (id) => {
-  return jwt.sign(id, process.env.TOKEN_ACCESS_SECRET, { expiresIn: '1h' });
+  const accessToken = jwt.sign(id, process.env.TOKEN_ACCESS_SECRET, { expiresIn: '30s' });
+  const refreshToken = jwt.sign(id, process.env.TOKEN_REFRESH_SECRET, { expiresIn: '2m' });
+  return { accessToken, refreshToken };
 };
 
 export const authenticateToken = (req, res, next) => {
@@ -22,3 +25,16 @@ export const authenticateToken = (req, res, next) => {
     return next();
   })
 };
+
+export const saveToken = async (userId, refreshToken) => {
+  try {
+    const tokenData = await Token.findOne({ user: userId });
+    if (tokenData) {
+      tokenData.refreshToken = refreshToken;
+      return tokenData.save();
+    }
+    return await Token.create({user: userId, refreshToken});
+  } catch (err) {
+    console.log(err);
+  }
+}

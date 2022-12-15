@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { initDb } from './src/config/db_model/index.js';
 import router from './src/modules/routes/index.js';
@@ -11,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 app.use("/api", router);
 
 initDb((err) => {
